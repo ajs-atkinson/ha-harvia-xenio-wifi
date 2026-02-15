@@ -15,6 +15,12 @@ class HarviaHumiditySetPoint(NumberEntity):
         self._sauna = sauna
         self._attr_unique_id = device.id + '_humidity_set_point'
         self._attr_icon = 'mdi:cloud-percent'
+        # Native NumberEntity attributes (HA 2022.10+)
+        self._attr_native_unit_of_measurement = PERCENTAGE
+        self._attr_native_min_value = 0
+        self._attr_native_max_value = 140
+        self._attr_native_step = 1
+        self._attr_mode = "box"
         # Bind this entity to a Home Assistant device
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device.id)},
@@ -28,29 +34,8 @@ class HarviaHumiditySetPoint(NumberEntity):
         """Return the name of the entity."""
         return self._name
 
-
     @property
-    def min_value(self):
-        """Return the minimum humidity value that can be set."""
-        return 0  # Set this to your desired minimum boundary value
-
-    @property
-    def max_value(self):
-        """Return the maximum humidity value that can be set."""
-        return 140  # Set this to your desired maximum boundary value
-
-    @property
-    def step(self):
-        """Return the step size of the humidity setting."""
-        return 1.0
-
-    @property
-    def unit_of_measurement(self):
-        """Return the unit of this entity."""
-        return PERCENTAGE
-
-    @property
-    def value(self):
+    def native_value(self):
         """Return the current set value."""
         return self._state
 
@@ -65,7 +50,7 @@ class HarviaHumiditySetPoint(NumberEntity):
             return
         self.async_write_ha_state()
 
-    async def async_set_value(self, value):
+    async def async_set_native_value(self, value: float):
         """Update the configured setpoint value."""
         self._state = value
         await self._device.set_target_relative_humidity(value)

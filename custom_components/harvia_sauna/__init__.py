@@ -3,6 +3,7 @@ import json
 import logging
 import asyncio
 import signal
+import ssl
 import websockets
 import uuid
 import random
@@ -297,7 +298,9 @@ class HarviaWebsock:
                 # Reset last-message timestamp whenever we (re)connect
                 self._last_message_monotonic = asyncio.get_running_loop().time()
 
-                async with websockets.connect(url, subprotocols=["graphql-ws"]) as self.websocket:
+                # Create SSL context off the event loop (HA warns if default certs are loaded on-loop)
+                ssl_context = await self.sauna.hass.async_add_executor_job(ssl.create_default_context)
+                async with websockets.connect(url, subprotocols=["graphql-ws"], ssl=ssl_context) as self.websocket:
                     self.reconnect_attempts = 0
                     await self.websocket.send(json.dumps(payload))
 
