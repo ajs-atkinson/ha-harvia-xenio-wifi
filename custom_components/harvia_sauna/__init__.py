@@ -180,7 +180,8 @@ class HarviaDevice:
             else:
                 _LOGGER.debug("statusCodes is None; defaulting door to closed.")
             self.doorSensor._door_open = door_open
-            await self.doorSensor.update_state()
+            if getattr(self.doorSensor, 'hass', None) is not None:
+                await self.doorSensor.update_state()
 
         # Sauna Ready Sensor: on if sauna is active and current temp >= target temp
         if hasattr(self, 'readySensor') and self.readySensor is not None:
@@ -191,27 +192,33 @@ class HarviaDevice:
                 except Exception:
                     ready = False
             self.readySensor._ready = ready
-            await self.readySensor.update_state()
+            if getattr(self.readySensor, 'hass', None) is not None:
+                await self.readySensor.update_state()
 
         if self.humiditySensor is not None:
             self.humiditySensor._state = self.humidity
-            await self.humiditySensor.update_state()
+            if getattr(self.humiditySensor, 'hass', None) is not None:
+                await self.humiditySensor.update_state()
 
         if self.wifiRssiSensor is not None:
             self.wifiRssiSensor._state = self.wifiRSSI
-            await self.wifiRssiSensor.update_state()
+            if getattr(self.wifiRssiSensor, 'hass', None) is not None:
+                await self.wifiRssiSensor.update_state()
 
         if self.remainingTimeSensor is not None:
             self.remainingTimeSensor._state = self.remainingTime
-            await self.remainingTimeSensor.update_state()
+            if getattr(self.remainingTimeSensor, 'hass', None) is not None:
+                await self.remainingTimeSensor.update_state()
 
         if self.stovePowerSensor is not None:
             self.stovePowerSensor._state = self.stovePower
-            await self.stovePowerSensor.update_state()
+            if getattr(self.stovePowerSensor, 'hass', None) is not None:
+                await self.stovePowerSensor.update_state()
 
         if self.humidityNumber is not None:
             self.humidityNumber._state = self.targetRh
-            await self.humidityNumber.update_state()
+            if getattr(self.humidityNumber, 'hass', None) is not None:
+                await self.humidityNumber.update_state()
 
         if self.thermostat is not None:
             self.thermostat._target_temperature = self.targetTemp
