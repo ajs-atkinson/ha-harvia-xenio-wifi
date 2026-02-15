@@ -1,3 +1,9 @@
+from homeassistant.components.binary_sensor import (
+    BinarySensorEntity,
+    BinarySensorDeviceClass,
+)
+from .constants import DOMAIN
+from homeassistant.helpers.device_registry import DeviceInfo
 
 class SaunaReadySensor(BinarySensorEntity):
     """Sensor indicating whether the sauna is on and has reached the target temperature."""
