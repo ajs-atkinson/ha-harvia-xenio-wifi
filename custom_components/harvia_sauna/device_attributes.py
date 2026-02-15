@@ -1,0 +1,3 @@
+attribute_list = [
+    "deviceId", "active", "light", "fan", "steamEn", "targetTemp", "targetRh", "heatUpTime", "tz", "onTime", "dehumEn", "autoLight", "tempUnit", "timedStart", "displayName", "cmd", "autoFan", "aromaEn", "aromaLevel", "wClkEn", "otaId", "maxOnTime", "errorCodes", "online", "otaChecked", "maxTemp", "serialNum", "minTemp", "msgId", "statusCodes", "hwVer", "devType", "swVer", "hwProperties", "macAddr", "expired", "ph2RelayCounterLT", "remainingTime", "steamOn", "temperature", "humidity", "heatOn", "steamOnCounterLT", "steamOnCounter", "heatOnCounterLT", "heatOnCounter", "ph1RelayCounterLT", "ph3RelayCounterLT", "ph1RelayCounter", "ph3RelayCounter", "wifiRSSI", "testVar1", "testVar2", "ph2RelayCounter"
+]

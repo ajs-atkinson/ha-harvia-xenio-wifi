@@ -32,25 +32,6 @@ Restart Homeassistant
 Go to settings, integrations and add 'Harvia Sauna'
 Your username and password is corresponding with the MyHarvia app.
 
-<!-- ## Limitations
-
-- You dont't get any message when the door of your sauna is open and you can't start the heater.  -->
-
-<!--
-## Known issues
-
-- Connection interruption ensures that no new sauna updates are received as no 'reconnect' mechanism has yet been created for web sockets. You need to restart HA in order to reset the component. -->
-
-
-## Road map (short term)
-
-- Adding [Device Triggers](https://developers.home-assistant.io/docs/device_automation_trigger): Ready, Turned-off, Turned-On, Heating etc...
-- Support for Steamer
-- Suppport to schedule Single Session timed start
-
-<!-- Please do! Open a Pull Request with your improvements. -->
-
-
 ## Credits
 
 This integration was developed by Ruben Harms. It uses the unofficial API of Harvia Xenio WiFi controllers and is not directly associated with Harvia.

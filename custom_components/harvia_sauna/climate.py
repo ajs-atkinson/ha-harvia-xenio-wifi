@@ -24,11 +24,21 @@ class HarviaThermostat(ClimateEntity):
 
     @property
     def min_temp(self):
-        return 40
+        # Use device minTemp if available, else default to 40
+        min_temp = getattr(self._device, 'minTemp', None)
+        try:
+            return float(min_temp) if min_temp is not None else 40
+        except Exception:
+            return 40
 
     @property
     def max_temp(self):
-        return 110
+        # Use device maxTemp if available, else default to 110
+        max_temp = getattr(self._device, 'maxTemp', None)
+        try:
+            return float(max_temp) if max_temp is not None else 110
+        except Exception:
+            return 110
 
     @property
     def name(self):

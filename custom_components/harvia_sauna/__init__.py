@@ -40,6 +40,12 @@ PLATFORMS: list[Platform] = [
 ]
 
 class HarviaDevice:
+            # Update all generic attribute sensors
+            if hasattr(self, 'generic_sensors'):
+                for attr, sensor in self.generic_sensors.items():
+                    value = getattr(self, attr, None)
+                    sensor._state = value
+                    await sensor.update_state()
     def __init__(self, sauna: HarviaSauna, id: str):
         self.sauna = sauna
         self.data = {}
@@ -133,6 +139,10 @@ class HarviaDevice:
         await self.update_ha_devices()
 
     async def update_ha_devices(self):
+        # StatusCodes sensor: expose raw statusCodes for diagnostics
+        if hasattr(self, 'statusCodesSensor') and self.statusCodesSensor is not None:
+            self.statusCodesSensor._state = self.statusCodes
+            await self.statusCodesSensor.update_state()
 
         if self.lightSwitch is not None:
             self.lightSwitch._is_on = self.lightsOn
@@ -152,71 +162,35 @@ class HarviaDevice:
 
 
         if self.doorSensor is not None:
-            # Door state is not consistently exposed as a dedicated boolean across firmwares.
-            # 1) Prefer explicit `doorSafetyState` when it actually changes.
-            # 2) Fall back to a statusCodes bit observed to flip on door open/close.
-            # 3) Default to False (closed).
-            door_open: bool | None = None
-
-            if self.doorSafetyState is not None:
-                door_open = bool(self.doorSafetyState)
-
-            # Observed: statusCodes toggles +2 when the door is opened on some devices.
-            # Use as a fallback only.
-            if door_open is None and self.statusCodes is not None:
+            # Best practice: Use the second digit of statusCodes to determine door state, as in the original repo.
+            # If statusCodes is not available or not a string of sufficient length, default to closed (False).
+            door_open = False
+            if self.statusCodes is not None:
                 try:
-                    door_open = bool(int(self.statusCodes) & 0x2)
-                except Exception:
-                    door_open = False
-
-            if door_open is None:
-                door_open = False
-
-            _LOGGER.debug(
-                "Door computed=%s (doorSafetyState=%s, statusCodes=%s)",
-                door_open,
-                self.doorSafetyState,
-                self.statusCodes,
-            )
-
-            self.doorSensor._state = bool(door_open)
+                    status_str = str(self.statusCodes)
+                    if len(status_str) > 1 and status_str[1].isdigit():
+                        # According to original logic, 9 means open
+                        door_open = int(status_str[1]) == 9
+                        _LOGGER.debug("Door state determined from statusCodes[1]: %s (statusCodes=%s)", door_open, status_str)
+                    else:
+                        _LOGGER.debug("statusCodes[1] not a digit or statusCodes too short: %s", status_str)
+                except Exception as e:
+                    _LOGGER.error("Error parsing statusCodes for door state: %s", e)
+            else:
+                _LOGGER.debug("statusCodes is None; defaulting door to closed.")
+            self.doorSensor._door_open = door_open
             await self.doorSensor.update_state()
 
-        if self.safetySwitchSensor is not None:
-            # Harvia app labels this as "Safety switch". Different firmwares expose different fields.
-            # Compute a single boolean: True = safety switch triggered / open.
-            safety_triggered = None
-
-            # 1) Prefer doorSafetyState when present (some firmwares use it for safety loop status)
-            # NOTE: doorSafetyState may represent a safety loop rather than a physical door contact.
-            if self.doorSafetyState is not None:
-                safety_triggered = bool(self.doorSafetyState)
-
-            # 2) Fallback to safetyRelay when present (often relay closes when safe)
-            if safety_triggered is None and self.safetyRelay is not None:
-                safety_triggered = (not bool(self.safetyRelay))
-
-            # 3) Last-resort legacy fallback to statusCodes (older decode observed)
-            if safety_triggered is None and self.statusCodes is not None:
+        # Sauna Ready Sensor: on if sauna is active and current temp >= target temp
+        if hasattr(self, 'readySensor') and self.readySensor is not None:
+            ready = False
+            if self.active and self.currentTemp is not None and self.targetTemp is not None:
                 try:
-                    safety_digit = int(str(self.statusCodes)[1])
-                    safety_triggered = (safety_digit == 9)
+                    ready = float(self.currentTemp) >= float(self.targetTemp)
                 except Exception:
-                    safety_triggered = False
-
-            if safety_triggered is None:
-                safety_triggered = False
-
-            _LOGGER.debug(
-                "Safety switch computed=%s (doorSafetyState=%s, safetyRelay=%s, statusCodes=%s)",
-                safety_triggered,
-                self.doorSafetyState,
-                self.safetyRelay,
-                self.statusCodes,
-            )
-
-            self.safetySwitchSensor._state = bool(safety_triggered)
-            await self.safetySwitchSensor.update_state()
+                    ready = False
+            self.readySensor._ready = ready
+            await self.readySensor.update_state()
 
         if self.humiditySensor is not None:
             self.humiditySensor._state = self.humidity
@@ -285,40 +259,34 @@ class HarviaDevice:
         _LOGGER.debug(f"Device attributes: {attributes_as_string}")
 
     async def get_binary_sensors(self) -> list:
-
         if self.binarySensors is not None:
             return self.binarySensors
-
         self.binarySensors = []
-
         # Door contact sensor
+        from .binary_sensor import HarviaDoorSensor, SaunaReadySensor
         self.doorSensor = HarviaDoorSensor(device=self, name=self.name, sauna=self.sauna)
         self.binarySensors.append(self.doorSensor)
-
-        # Harvia app labels this as "Safety switch" (separate from "Door" in the UI)
-        self.safetySwitchSensor = HarviaSafetySwitchSensor(device=self, name=self.name, sauna=self.sauna)
-        self.binarySensors.append(self.safetySwitchSensor)
-
+        # Sauna ready sensor
+        self.readySensor = SaunaReadySensor(device=self, name=self.name, sauna=self.sauna)
+        self.binarySensors.append(self.readySensor)
         return self.binarySensors
 
 
     async def get_sensors(self) -> list:
-
-        if self.sensors != None:
+        if self.sensors is not None:
             return self.sensors
-
         self.sensors = []
-
         humiditySensor = HarviaHumiditySensor(device=self, name=self.name, sauna=self.sauna)
         wifiRssiSensor = HarviaWifiRssiSensor(device=self, name=self.name)
         remainingTimeSensor = HarviaRemainingTimeSensor(device=self, name=self.name)
         stovePowerSensor = HarviaStovePowerSensor(device=self, name=self.name)
-
+        from .sensor import StatusCodesSensor
+        statusCodesSensor = StatusCodesSensor(device=self, name=self.name)
         self.sensors.append(humiditySensor)
         self.sensors.append(wifiRssiSensor)
         self.sensors.append(remainingTimeSensor)
         self.sensors.append(stovePowerSensor)
-
+        self.sensors.append(statusCodesSensor)
         return self.sensors
 
     async def get_numbers(self) -> list:

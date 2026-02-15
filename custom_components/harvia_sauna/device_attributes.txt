@@ -1,0 +1,54 @@
+active: Indicates if the sauna is active (0 for off, likely 1 for on).
+aromaEn: Aromatherapy function enabled (0 for off, 1 for on).
+aromaLevel: The level of aromatherapy.
+autoFan: Automatic fan function enabled (0 for off, 1 for on).
+autoLight: Automatic lighting function enabled (0 for off, 1 for on).
+cmd: A command or message sent to or from the device.
+dehumEn: Dehumidification function enabled (0 for off, 1 for on).
+deviceId: A unique identifier for the device.
+devType: Device type.
+displayName: The name given to the device (e.g., "Sauna upstairs").
+errorCodes: A value indicating if errors have occurred.
+expired: Indicates if a certain status or license has expired (false for not expired).
+fan: Indicates the status of the fan (0 for off, 1 for on).
+heatOn: Indicates if the heating is enabled (false means off).
+heatOnCounter: Counter for how often the heating has been enabled (possibly for a shorter period than LT).
+heatOnCounterLT: Counter for how often the heating has been enabled long-term.
+heatUpTime: Expected heat-up time in minutes (e.g., 37 minutes).
+humidity: The current measured humidity (0 may indicate an error or no measurement).
+hwProperties: A value indicating hardware properties.
+hwVer: Hardware version.
+light: Indicates the status of the lighting (0 for off, 1 for on).
+macAddr: The MAC address of the device.
+maxOnTime: Maximum time in minutes the device can remain on.
+maxTemp: Maximum temperature setting.
+minTemp: Minimum temperature setting.
+msgId: An identifier for the message or command.
+online: Indicates if the device is online (true for online).
+onTime: The time in minutes the sauna has been on.
+otaChecked: Timestamp of the last OTA update check.
+otaId: An identifier for Over-The-Air updates.
+ph1RelayCounter: Counter for phase 1 relays.
+ph1RelayCounterLT: Counter for phase 1 relays long-term.
+ph2RelayCounter: Counter for phase 2 relays.
+ph2RelayCounterLT: Counter for phase 2 relays, possibly long-term (LT likely means Long Term).
+ph3RelayCounter: Counter for phase 3 relays.
+ph3RelayCounterLT: Counter for phase 3 relays long-term.
+remainingTime: Remaining time in minutes or seconds for a certain operation or state.
+serialNum: Device serial number.
+statusCodes: Likely indicates the current status codes of the device.
+steamEn: Steam function enabled (0 for off, 1 for on).
+steamOn: Indicates if the steam function is enabled (false means off).
+steamOnCounter: Counter for how often the steam function has been enabled (possibly for a shorter period than LT).
+steamOnCounterLT: Counter for how often the steam function has been enabled long-term.
+swVer: Software version.
+targetRh: The target humidity percentage (e.g., 50%).
+targetTemp: The target temperature for the sauna (e.g., 80 degrees).
+tempUnit: Temperature unit (0 could be Celsius).
+testVar1, testVar2: Test variables, possibly used for troubleshooting or temporary measurements.
+temperature: The current measured temperature (e.g., 23 degrees).
+timestamp: A timestamp indicating when the data was generated or last updated. "LATEST" suggests this is the most recent data.
+timedStart: An encoded value likely indicating the scheduled start time of the sauna.
+tz: Device time zone (e.g., UTC+1 with daylight saving enabled).
+wClkEn: Wall clock function enabled (0 for off, 1 for on).
+wifiRSSI: Wi-Fi signal strength (RSSI stands for Received Signal Strength Indicator, e.g., -73 dBm indicates moderate to good connection).
