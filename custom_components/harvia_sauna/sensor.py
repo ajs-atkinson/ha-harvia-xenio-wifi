@@ -1,3 +1,7 @@
+from homeassistant.components.sensor import SensorEntity
+from homeassistant.const import PERCENTAGE, UnitOfTime, SIGNAL_STRENGTH_DECIBELS_MILLIWATT
+from homeassistant.helpers.device_registry import DeviceInfo
+
 class GenericAttributeSensor(SensorEntity):
     """Sensor to expose a generic device attribute for diagnostics."""
 
