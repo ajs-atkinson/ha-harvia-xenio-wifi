@@ -1,5 +1,5 @@
 import logging
-_LOGGER = logging.getLogger('custom_component.harvia_sauna')
+_LOGGER = logging.getLogger(__name__)
 DOMAIN = "harvia_sauna"
 STORAGE_KEY = "harvia_sauna"
 STORAGE_VERSION = 1

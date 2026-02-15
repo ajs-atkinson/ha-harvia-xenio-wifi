@@ -10,7 +10,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .constants import DOMAIN, REGION
 
-_LOGGER = logging.getLogger('custom_component.harvia_sauna')
+_LOGGER = logging.getLogger(__name__)
 
 
 class HarviaApiError(Exception):
