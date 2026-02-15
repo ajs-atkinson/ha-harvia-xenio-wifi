@@ -14,7 +14,7 @@ from .climate import HarviaThermostat
 from .sensor import HarviaHumiditySensor, HarviaWifiRssiSensor, HarviaRemainingTimeSensor, HarviaStovePowerSensor
 from .number import HarviaHumiditySetPoint
 from .api import HarviaSaunaAPI
-from .binary_sensor import HarviaDoorSensor, HarviaSafetySwitchSensor
+from .binary_sensor import HarviaDoorSensor
 from .constants import DOMAIN, STORAGE_KEY, STORAGE_VERSION, REGION
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
