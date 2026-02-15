@@ -12,6 +12,15 @@ from .constants import DOMAIN, REGION
 
 _LOGGER = logging.getLogger('custom_component.harvia_sauna')
 
+
+class HarviaApiError(Exception):
+    """Raised when the Harvia cloud API returns an unexpected response."""
+
+
+class HarviaAuthError(HarviaApiError):
+    """Raised when authentication/authorization fails."""
+
+
 class HarviaSaunaAPI:
     def __init__(self, username, password, hass):
         self.username  = username
@@ -22,7 +31,7 @@ class HarviaSaunaAPI:
         self.token_data = None
 
     async def getEndpoints(self):
-        """Haalt endpoints op en slaat deze op als ze nog niet bestaan."""
+        """Fetch endpoints and cache them if they do not already exist."""
         _LOGGER.debug("Fetching endpoints.")
 
         if self.endpoints is None:
@@ -46,13 +55,12 @@ class HarviaSaunaAPI:
         return self.endpoints
 
     async def authenticate(self):
+        """Authenticate with the service and cache tokens."""
         if self.token_data is not None:
             return True
 
         u = await self.getClient()
-        """Authenticateert met de service en slaat de tokens op."""
         _LOGGER.debug("Authenticating")
-        _LOGGER.debug("Using username: " + self.username + ' - with password:"'+self.password+ "'")
 
         try:
             await self.hass.async_add_executor_job(
@@ -70,8 +78,6 @@ class HarviaSaunaAPI:
         }
 
         _LOGGER.info("Authentication successful, tokens saved.")
-        data_string = json.dumps( self.token_data, indent=4)
-        _LOGGER.debug(f"Token data: {data_string}")
 
         return True
 
@@ -109,7 +115,7 @@ class HarviaSaunaAPI:
         }
 
         if current_id_token != client.id_token:
-            _LOGGER.debug(f"Token renewed! {current_id_token} != {client.id_token}")
+            _LOGGER.debug("Token renewed (id_token changed).")
 
     async def getIdToken(self) -> str:
         await self.checkAndRenewTokens()
@@ -123,17 +129,50 @@ class HarviaSaunaAPI:
         return headers
 
     async def endpoint(self, endpoint: str, query: dict) -> dict:
-        headers = await self.getHeaders()
+        """Call a Harvia GraphQL endpoint and return the parsed JSON response."""
+        if self.endpoints is None:
+            await self.getEndpoints()
+
         session = async_get_clientsession(self.hass)
         url = self.endpoints[endpoint]['endpoint']
+
         queryDump = json.dumps(query, indent=4)
-        _LOGGER.debug("Endpoint request on '" + url + "':")
-        _LOGGER.debug("\tQuery:" + queryDump)
-        async with session.post(url, json=query, headers=headers) as response:
-            data = await response.json()
-            dataString = json.dumps(data, indent=4)
-            _LOGGER.debug(f"\tReturned data: {dataString}")
-            return data
+        _LOGGER.debug("Endpoint request on '%s':", url)
+        _LOGGER.debug("\tQuery: %s", queryDump)
+
+        async def _do_request() -> dict:
+            headers = await self.getHeaders()
+            async with session.post(url, json=query, headers=headers) as response:
+                # Read body once so we can log useful info on errors.
+                text = await response.text()
+
+                if response.status in (401, 403):
+                    raise HarviaAuthError(f"Unauthorized ({response.status}) calling {endpoint}")
+
+                if response.status < 200 or response.status >= 300:
+                    raise HarviaApiError(
+                        f"HTTP {response.status} calling {endpoint}: {text[:500]}"
+                    )
+
+                try:
+                    data = json.loads(text) if text else {}
+                except json.JSONDecodeError as e:
+                    raise HarviaApiError(
+                        f"Invalid JSON from {endpoint} (HTTP {response.status}): {text[:500]}"
+                    ) from e
+
+                dataString = json.dumps(data, indent=4)
+                _LOGGER.debug("\tReturned data: %s", dataString)
+                return data
+
+        # First attempt
+        try:
+            return await _do_request()
+        except HarviaAuthError:
+            # Tokens may have expired; force renewal and retry once.
+            _LOGGER.info("Authorization failed; renewing token and retrying once.")
+            await self.checkAndRenewTokens()
+            return await _do_request()
 
     async def getWebsocketEndpoint(self, endpoint: str) -> dict:
         endpoint = self.endpoints[endpoint]['endpoint']
@@ -148,7 +187,6 @@ class HarviaSaunaAPI:
         websockEndpoint = await self.getWebsocketEndpoint(endpoint)
         id_token = await self.getIdToken()
         headerPayload = {"Authorization":id_token,"host":websockEndpoint['host']}
-        data_string = str(json.dumps(headerPayload, indent=4))
-        encoded_header = base64.b64encode(data_string.encode())
+        encoded_header = base64.b64encode(json.dumps(headerPayload).encode())
         wssUrl = websockEndpoint['wssUrl']+ '?header='+ quote(encoded_header)+'&payload=e30='
         return wssUrl

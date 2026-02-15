@@ -4,12 +4,13 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.const import STATE_ON, STATE_OFF
 from .constants import DOMAIN, STORAGE_KEY, STORAGE_VERSION, REGION,_LOGGER
+from homeassistant.helpers.device_registry import DeviceInfo
 
 class HarviaDoorSensor(BinarySensorEntity):
-    """Een sensor die aangeeft of de Harvia sauna deur open of gesloten is."""
+    """Sensor indicating whether the Harvia sauna door is open or closed."""
 
     def __init__(self, device, name, sauna):
-        """Initialiseer de sensor."""
+        """Initialize the door sensor."""
         self._name = name + ' Door'
         self._state = STATE_OFF
         self._device = device
@@ -17,10 +18,17 @@ class HarviaDoorSensor(BinarySensorEntity):
         self._sauna = sauna
         self._attr_unique_id = device.id + '_door_sensor'
         self._attr_icon = 'mdi:door'
+        # Bind this entity to a Home Assistant device
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, device.id)},
+            name=getattr(device, "name", None) or name,
+            manufacturer="Harvia",
+            model=getattr(device, "model", None) or "Xenio WiFi",
+        )
 
     @property
     def name(self):
-        """Return de naam van de sensor."""
+        """Return the name of the sensor."""
         return self._name
 
     @property
@@ -29,29 +37,28 @@ class HarviaDoorSensor(BinarySensorEntity):
 
     @property
     def is_on(self):
-        """Return True als de sensor aan is/detecteert dat de deur open is."""
-        if self._state == STATE_OFF:
-            return False
-        else:
-            return True
-        #return self._state
+        """Return True if the sensor detects that the door is open."""
+        return self._state != STATE_OFF
 
     async def async_added_to_hass(self):
-        """Acties die uitgevoerd moeten worden als entiteit aan HA is toegevoegd."""
+        """Actions to perform when the entity is added to Home Assistant."""
         self._device.doorSensor = self
         await self._device.update_ha_devices()
 
     async def update_state(self):
+        # Avoid writing state for disabled entities (HA 2026+ warns about this)
+        if not self.enabled:
+            return
         self.async_write_ha_state()
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up de Harvia binary sensors."""
+    """Set up the Harvia binary sensors."""
     devices = await hass.data[DOMAIN]['api'].get_devices()
-    all_binary_sensors = []  # Gebruik een andere variabele om verwarring te voorkomen
+    all_binary_sensors = []  # Use a different variable name to avoid confusion
 
     for device in devices:
         _LOGGER.debug(f"Loading binary sensors for device: {device.name}")
-        device_binary_sensors = await device.get_binary_sensors()  # Verkrijg binary sensors voor het huidige apparaat
-        all_binary_sensors.extend(device_binary_sensors)  # Voeg de verkregen binary sensors toe aan de lijst
+        device_binary_sensors = await device.get_binary_sensors()  # Get binary sensors for the current device
+        all_binary_sensors.extend(device_binary_sensors)  # Add the binary sensors to the list
 
     async_add_entities(all_binary_sensors, True)

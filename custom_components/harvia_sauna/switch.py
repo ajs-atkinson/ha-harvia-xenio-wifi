@@ -1,6 +1,7 @@
 from homeassistant.components.switch import SwitchEntity
 from .constants import DOMAIN, STORAGE_KEY, STORAGE_VERSION, REGION,_LOGGER
 from homeassistant.components.climate.const import HVACMode
+from homeassistant.helpers.device_registry import DeviceInfo
 
 class HarviaPowerSwitch(SwitchEntity):
     def __init__(self, device, name, sauna):
@@ -11,6 +12,14 @@ class HarviaPowerSwitch(SwitchEntity):
         self._sauna = sauna
         self._attr_unique_id = device.id + '_power'
         self._attr_icon = 'mdi:heating-coil'
+
+        # Bind entities to a Home Assistant device
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, device.id)},
+            name=getattr(device, "name", None) or name,
+            manufacturer="Harvia",
+            model=getattr(device, "model", None) or "Xenio WiFi",
+        )
 
 
     @property
@@ -28,21 +37,25 @@ class HarviaPowerSwitch(SwitchEntity):
 
     @property
     def unique_id(self):
-        """Return een unieke ID."""
+        """Return a unique ID."""
         return self._device_id
 
     async def async_added_to_hass(self):
-        """Acties die uitgevoerd moeten worden als entiteit aan HA is toegevoegd."""
+        """Actions to perform when the entity is added to Home Assistant."""
         self._device.powerSwitch = self
         await self._device.update_ha_devices()
 
     async def update_state(self):
+        # Avoid writing state for disabled entities (HA 2026+ warns about this)
+        if not self.enabled:
+            return
         self.async_write_ha_state()
 
     async def async_turn_on(self, **kwargs):
-        # Code om de sauna aan te zetten
+        # Code to turn the sauna on
         self._is_on = True
-        self.async_write_ha_state()
+        if self.enabled:
+            self.async_write_ha_state()
 
         await self._device.set_active(True)
         if self._device.thermostat is not None:
@@ -50,9 +63,10 @@ class HarviaPowerSwitch(SwitchEntity):
             await self._device.thermostat.update_state()
 
     async def async_turn_off(self, **kwargs):
-        # Code om de sauna uit te zetten
+        # Code to turn the sauna off
         self._is_on = False
-        self.async_write_ha_state()
+        if self.enabled:
+            self.async_write_ha_state()
 
         await self._device.set_active(False)
         if self._device.thermostat is not None:
@@ -69,14 +83,24 @@ class HarviaLightSwitch(SwitchEntity):
         self._attr_unique_id = device.id + '_light'
         self._attr_icon = 'mdi:lightbulb-multiple'
 
+        # Bind entities to a Home Assistant device
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, device.id)},
+            name=getattr(device, "name", None) or name,
+            manufacturer="Harvia",
+            model=getattr(device, "model", None) or "Xenio WiFi",
+        )
+
 
     async def async_added_to_hass(self):
-        """Acties die uitgevoerd moeten worden als entiteit aan HA is toegevoegd."""
+        """Actions to perform when the entity is added to Home Assistant."""
         self._device.lightSwitch = self
         await self._device.update_ha_devices()
         #self._device.
 
     async def update_state(self):
+        if not self.enabled:
+            return
         self.async_write_ha_state()
 
     @property
@@ -90,16 +114,16 @@ class HarviaLightSwitch(SwitchEntity):
 
     @property
     def unique_id(self):
-        """Return een unieke ID."""
+        """Return a unique ID."""
         return self._device_id
 
     async def async_turn_on(self, **kwargs):
-        # Code om de sauna aan te zetten
+        # Code to turn the sauna on
         await self._device.set_lights(True)
         self._is_on = True
 
     async def async_turn_off(self, **kwargs):
-        # Code om de sauna uit te zetten
+        # Code to turn the sauna off
         await self._device.set_lights(False)
         self._is_on = False
 
@@ -113,14 +137,24 @@ class HarviaSteamerSwitch(SwitchEntity):
         self._attr_unique_id = device.id + '_steamer'
         self._attr_icon = 'mdi:wave'
 
+        # Bind entities to a Home Assistant device
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, device.id)},
+            name=getattr(device, "name", None) or name,
+            manufacturer="Harvia",
+            model=getattr(device, "model", None) or "Xenio WiFi",
+        )
+
 
     async def async_added_to_hass(self):
-        """Acties die uitgevoerd moeten worden als entiteit aan HA is toegevoegd."""
+        """Actions to perform when the entity is added to Home Assistant."""
         self._device.steamerSwitch = self
         await self._device.update_ha_devices()
         #self._device.
 
     async def update_state(self):
+        if not self.enabled:
+            return
         self.async_write_ha_state()
 
     @property
@@ -134,16 +168,16 @@ class HarviaSteamerSwitch(SwitchEntity):
 
     @property
     def unique_id(self):
-        """Return een unieke ID."""
+        """Return a unique ID."""
         return self._device_id
 
     async def async_turn_on(self, **kwargs):
-        # Code om de sauna aan te zetten
+        # Code to turn the sauna on
         await self._device.set_steamer(True)
         self._is_on = True
 
     async def async_turn_off(self, **kwargs):
-        # Code om de sauna uit te zetten
+        # Code to turn the sauna off
         await self._device.set_steamer(False)
         self._is_on = False
 
@@ -157,14 +191,24 @@ class HarviaFanSwitch(SwitchEntity):
         self._attr_unique_id = device.id + '_fan'
         self._attr_icon = 'mdi:fan'
 
+        # Bind entities to a Home Assistant device
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, device.id)},
+            name=getattr(device, "name", None) or name,
+            manufacturer="Harvia",
+            model=getattr(device, "model", None) or "Xenio WiFi",
+        )
+
 
     async def async_added_to_hass(self):
-        """Acties die uitgevoerd moeten worden als entiteit aan HA is toegevoegd."""
+        """Actions to perform when the entity is added to Home Assistant."""
         self._device.fanSwitch = self
         await self._device.update_ha_devices()
         #self._device.
 
     async def update_state(self):
+        if not self.enabled:
+            return
         self.async_write_ha_state()
 
     @property
@@ -178,23 +222,23 @@ class HarviaFanSwitch(SwitchEntity):
 
     @property
     def unique_id(self):
-        """Return een unieke ID."""
+        """Return a unique ID."""
         return self._device_id
 
     async def async_turn_on(self, **kwargs):
-        # Code om de sauna aan te zetten
+        # Code to turn the sauna on
         await self._device.set_fan(True)
         self._is_on = True
 
     async def async_turn_off(self, **kwargs):
-        # Code om de sauna uit te zetten
+        # Code to turn the sauna off
         await self._device.set_fan(False)
         self._is_on = False
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up de Harvia switches."""
-    # Hier zou je de logica toevoegen om je apparaten op te halen.
-    # Voor nu voegen we handmatig een schakelaar toe als voorbeeld.
+    """Set up the Harvia switches."""
+    # Here you would add the logic to retrieve your devices.
+    # For now we manually add switches as an example.
     devices = await hass.data[DOMAIN]['api'].get_devices()
     switches = []
 
@@ -205,4 +249,3 @@ async def async_setup_entry(hass, entry, async_add_entities):
             switches.append(device_switch)
 
     async_add_entities(switches, True)
-

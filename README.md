@@ -24,7 +24,7 @@ Component has been tested with the Harvia Xenio Wifi (CX001WIFI) and Harvia Cili
 
 ## Installation
 
-Add a custom repository [https://github.com/RubenHarms/ha-harvia-xenio-wifi/](https://github.com/RubenHarms/ha-harvia-xenio-wifi/) to HACS and search for Harvia Sauna to install.
+Add a custom repository [https://github.com/brettmeyerowitz/ha-harvia-xenio-wifi/](https://github.com/brettmeyerowitz/ha-harvia-xenio-wifi/) to HACS and search for Harvia Sauna to install.
 Restart Homeassistant 
 
 ## Configuration
@@ -55,6 +55,6 @@ Your username and password is corresponding with the MyHarvia app.
 
 This integration was developed by Ruben Harms. It uses the unofficial API of Harvia Xenio WiFi controllers and is not directly associated with Harvia.
 
-[home-assistant-harvia-sauna]: https://github.com/RubenHarms/ha-harvia-xenio-wifi
+[home-assistant-harvia-sauna]: https://github.com/brettmeyerowitz/ha-harvia-xenio-wifi
 [buymecoffee]: https://www.buymeacoffee.com/rubenharms
 [buymecoffeebadge]: https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png
