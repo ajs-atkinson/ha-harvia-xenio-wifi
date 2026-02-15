@@ -22,12 +22,22 @@ from homeassistant.helpers.storage import Store
 from homeassistant.components.climate import ClimateEntity
 from homeassistant.components.climate.const import HVACMode
 from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
+from homeassistant.const import Platform
 
 from pycognito import Cognito
 import boto3
 
 _LOGGER = logging.getLogger(__name__)
-ENTITY_TYPES = [ 'switch', 'climate',  'binary_sensor', 'sensor', 'number']
+
+# Home Assistant platforms to set up for this integration.
+# IMPORTANT: use Platform enums (not strings) so forward/unload works reliably across HA versions.
+PLATFORMS: list[Platform] = [
+    Platform.SWITCH,
+    Platform.CLIMATE,
+    Platform.BINARY_SENSOR,
+    Platform.SENSOR,
+    Platform.NUMBER,
+]
 
 class HarviaDevice:
     def __init__(self, sauna: HarviaSauna, id: str):
@@ -142,15 +152,34 @@ class HarviaDevice:
 
 
         if self.doorSensor is not None:
-            # Prefer realtime boolean from data payload; fall back to False (closed) if unknown.
-            door_state = self.doorSafetyState
-            if door_state is None:
-                door_state = False
-            if bool(door_state):
-                _LOGGER.debug("Door is open")
-            else:
-                _LOGGER.debug("Door is closed")
-            self.doorSensor._state = bool(door_state)
+            # Door state is not consistently exposed as a dedicated boolean across firmwares.
+            # 1) Prefer explicit `doorSafetyState` when it actually changes.
+            # 2) Fall back to a statusCodes bit observed to flip on door open/close.
+            # 3) Default to False (closed).
+            door_open: bool | None = None
+
+            if self.doorSafetyState is not None:
+                door_open = bool(self.doorSafetyState)
+
+            # Observed: statusCodes toggles +2 when the door is opened on some devices.
+            # Use as a fallback only.
+            if door_open is None and self.statusCodes is not None:
+                try:
+                    door_open = bool(int(self.statusCodes) & 0x2)
+                except Exception:
+                    door_open = False
+
+            if door_open is None:
+                door_open = False
+
+            _LOGGER.debug(
+                "Door computed=%s (doorSafetyState=%s, statusCodes=%s)",
+                door_open,
+                self.doorSafetyState,
+                self.statusCodes,
+            )
+
+            self.doorSensor._state = bool(door_open)
             await self.doorSensor.update_state()
 
         if self.safetySwitchSensor is not None:
@@ -159,6 +188,7 @@ class HarviaDevice:
             safety_triggered = None
 
             # 1) Prefer doorSafetyState when present (some firmwares use it for safety loop status)
+            # NOTE: doorSafetyState may represent a safety loop rather than a physical door contact.
             if self.doorSafetyState is not None:
                 safety_triggered = bool(self.doorSafetyState)
 
@@ -749,14 +779,13 @@ async def async_setup_entry(hass, entry):
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = harvia_sauna
 
-    await hass.config_entries.async_forward_entry_setups(entry, ENTITY_TYPES)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    unload_ok = True
-    for entity_type in ENTITY_TYPES:
-        unload_ok = unload_ok and await hass.config_entries.async_forward_entry_unload(entry, entity_type)
+    """Unload a config entry."""
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     # Clean up stored instance
     if DOMAIN in hass.data and entry.entry_id in hass.data[DOMAIN]:
@@ -768,5 +797,3 @@ async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Handle reloading a config entry."""
     await async_unload_entry(hass, entry)
     await async_setup_entry(hass, entry)
-
-    return True
