@@ -293,7 +293,12 @@ class HarviaWebsock:
 
                 url = await self.sauna.api.getWebsockUrlByEndpoint(self.endpoint)
                 payload = {'type': 'connection_init'}
-                _LOGGER.debug(f"wssUrl: {url}")
+                _LOGGER.debug(
+                    "Websock %s connecting (user_receiver=%s) to host=%s",
+                    self.endpoint,
+                    self.user_receiver,
+                    self.endpoint_host,
+                )
 
                 # Reset last-message timestamp whenever we (re)connect
                 self._last_message_monotonic = asyncio.get_running_loop().time()
@@ -325,7 +330,6 @@ class HarviaWebsock:
             self.reconnect_attempts += 1
 
     async def create_subscription(self):
-
         id_token = await self.sauna.api.getIdToken()
         data = ""
         if self.endpoint == 'data':
@@ -349,8 +353,12 @@ class HarviaWebsock:
                     }
 
         message = json.dumps(payload)
-        _LOGGER.debug(f"Websock "+self.endpoint+ f" send subscription: {message}")
-
+        _LOGGER.debug(
+            "Websock %s sending subscription (user_receiver=%s, id=%s)",
+            self.endpoint,
+            self.user_receiver,
+            self.uuid,
+        )
         await self.websocket.send(message)
 
     async def create_data_subscription_message(self) -> str:
@@ -371,7 +379,12 @@ class HarviaWebsock:
 
     async def handle_message(self, message):
         """Process and respond to an incoming message."""
-        _LOGGER.debug("Websock " + self.endpoint +  " (User receveiver: " + str(self.user_receiver) + ") - received message: " + message)
+        _LOGGER.debug(
+            "Websock %s received message (user_receiver=%s, type=%s)",
+            self.endpoint,
+            self.user_receiver,
+            json.loads(message).get("type"),
+        )
         data = json.loads(message)  # Message is JSON-formatted
         # Mark connection as alive whenever we receive a message
         self._last_message_monotonic = asyncio.get_running_loop().time()
@@ -382,14 +395,20 @@ class HarviaWebsock:
             if data.get('payload'):
                 self.timeout = data['payload']['connectionTimeoutMs']/1000
             await self.create_subscription()
+        elif data.get("type") == "start_ack":
+            _LOGGER.debug("Websock %s subscription acknowledged.", self.endpoint)
         elif data.get("type") == "data":
-            _LOGGER.debug("Websock " + self.endpoint +  " data message receiver: " + message)
+            _LOGGER.debug("Websock %s data update received.", self.endpoint)
             if self.endpoint == 'device':
                 await self.sauna.process_device_update(data)
             elif self.endpoint == 'data':
                 await self.sauna.process_device_update(data)
         else:
-            _LOGGER.debug("Unknown message type on " + self.endpoint + ": " + message)
+            _LOGGER.debug(
+                "Unknown message type on %s: %s",
+                self.endpoint,
+                data.get("type"),
+            )
 
     async def receive_message(self,websocket):
         """Wait for a message with a maximum timeout."""
