@@ -51,12 +51,14 @@ class HarviaDevice:
         self.fanOn = False
         self.statusCodes = None
         self.doorSafetyState = None
+        self.safetyRelay = None
         self.name = None
         self.lightSwitch = None
         self.powerSwitch = None
         self.fanSwitch = None
         self.steamerSwitch = None
         self.doorSensor = None
+        self.safetySwitchSensor = None
         self.thermostat = None
         self.binarySensors = None
         self.humiditySensor = None
@@ -110,6 +112,8 @@ class HarviaDevice:
             self.lastestUpdate = data['timestamp']
         if 'doorSafetyState' in data:
             self.doorSafetyState = data['doorSafetyState']
+        if 'safetyRelay' in data:
+            self.safetyRelay = data['safetyRelay']
         if 'statusCodes' in data:
             if data['statusCodes'] != self.statusCodes:
                 _LOGGER.debug("StatusCodes changed: " +  str(data['statusCodes']))
@@ -148,6 +152,41 @@ class HarviaDevice:
                 _LOGGER.debug("Door is closed")
             self.doorSensor._state = bool(door_state)
             await self.doorSensor.update_state()
+
+        if self.safetySwitchSensor is not None:
+            # Harvia app labels this as "Safety switch". Different firmwares expose different fields.
+            # Compute a single boolean: True = safety switch triggered / open.
+            safety_triggered = None
+
+            # 1) Prefer doorSafetyState when present (some firmwares use it for safety loop status)
+            if self.doorSafetyState is not None:
+                safety_triggered = bool(self.doorSafetyState)
+
+            # 2) Fallback to safetyRelay when present (often relay closes when safe)
+            if safety_triggered is None and self.safetyRelay is not None:
+                safety_triggered = (not bool(self.safetyRelay))
+
+            # 3) Last-resort legacy fallback to statusCodes (older decode observed)
+            if safety_triggered is None and self.statusCodes is not None:
+                try:
+                    safety_digit = int(str(self.statusCodes)[1])
+                    safety_triggered = (safety_digit == 9)
+                except Exception:
+                    safety_triggered = False
+
+            if safety_triggered is None:
+                safety_triggered = False
+
+            _LOGGER.debug(
+                "Safety switch computed=%s (doorSafetyState=%s, safetyRelay=%s, statusCodes=%s)",
+                safety_triggered,
+                self.doorSafetyState,
+                self.safetyRelay,
+                self.statusCodes,
+            )
+
+            self.safetySwitchSensor._state = bool(safety_triggered)
+            await self.safetySwitchSensor.update_state()
 
         if self.humiditySensor is not None:
             self.humiditySensor._state = self.humidity
@@ -591,7 +630,7 @@ class HarviaSauna:
             #{ "id": "898df439-408e-4d35-b7c6-9a5bc6d69e81", "type": "data", "payload": { "data": { "onDataUpdates": { "item": { "deviceId": "e0b84f32-9eb0-4add-aad5-8d50886b3a66", "timestamp": "1712161222726", "sessionId": "1", "type": "sauna", "data": "{\"targetTemp\":90,\"ph2RelayCounterLT\":0,\"remainingTime\":357,\"steamOn\":false,\"temperature\":27,\"humidity\":0,\"heatOn\":true,\"steamOnCounterLT\":0,\"steamOnCounter\":0,\"heatOnCounterLT\":0,\"heatOnCounter\":0,\"ph1RelayCounterLT\":1,\"ph3RelayCounterLT\":0,\"ph1RelayCounter\":1,\"ph3RelayCounter\":0,\"wifiRSSI\":-68,\"testVar1\":0,\"testVar2\":0,\"ph2RelayCounter\":0}", "__typename": "DataItem" }, "__typename": "UpdatedData" } } } }
             data = json.loads(message['payload']['data']['onDataUpdates']['item']['data'])
             data['timestamp'] = message['payload']['data']['onDataUpdates']['item']['timestamp']
-            data['type'] = message['payload']['data']['onDataUpdates']['item']
+            data['type'] = message['payload']['data']['onDataUpdates']['item']['type']
             deviceId =  message['payload']['data']['onDataUpdates']['item']['deviceId']
         else:
             return
