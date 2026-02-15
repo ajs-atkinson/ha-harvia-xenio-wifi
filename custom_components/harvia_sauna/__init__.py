@@ -40,12 +40,6 @@ PLATFORMS: list[Platform] = [
 ]
 
 class HarviaDevice:
-            # Update all generic attribute sensors
-            if hasattr(self, 'generic_sensors'):
-                for attr, sensor in self.generic_sensors.items():
-                    value = getattr(self, attr, None)
-                    sensor._state = value
-                    await sensor.update_state()
     def __init__(self, sauna: HarviaSauna, id: str):
         self.sauna = sauna
         self.data = {}
@@ -88,6 +82,13 @@ class HarviaDevice:
         self.thermostats = None
         self.lastestUpdate = None
 
+    async def update_generic_sensors(self):
+        # Update all generic attribute sensors
+        if hasattr(self, 'generic_sensors'):
+            for attr, sensor in self.generic_sensors.items():
+                value = getattr(self, attr, None)
+                sensor._state = value
+                await sensor.update_state()
 
     async def update_data(self, data: dict):
         self.data = data
