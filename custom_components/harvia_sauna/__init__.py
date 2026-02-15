@@ -11,7 +11,7 @@ import random
 
 from .switch import HarviaPowerSwitch, HarviaLightSwitch, HarviaFanSwitch, HarviaSteamerSwitch
 from .climate import HarviaThermostat
-from .sensor import HarviaHumiditySensor
+from .sensor import HarviaHumiditySensor, HarviaWifiRssiSensor, HarviaRemainingTimeSensor, HarviaStovePowerSensor
 from .number import HarviaHumiditySetPoint
 from .api import HarviaSaunaAPI
 from .binary_sensor import HarviaDoorSensor
@@ -21,7 +21,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.storage import Store
 from homeassistant.components.climate import ClimateEntity
 from homeassistant.components.climate.const import HVACMode
-from homeassistant.const import STATE_ON, STATE_OFF, CONF_USERNAME, CONF_PASSWORD
+from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
 
 from pycognito import Cognito
 import boto3
@@ -43,11 +43,14 @@ class HarviaDevice:
         self.currentTemp = None
         self.humidity = None
         self.remainingTime = None
+        self.wifiRSSI = None
+        self.stovePower = None
         self.heatUpTime = 0
         self.targetRh = 0
         self.onTime = 0
         self.fanOn = False
         self.statusCodes = None
+        self.doorSafetyState = None
         self.name = None
         self.lightSwitch = None
         self.powerSwitch = None
@@ -57,6 +60,9 @@ class HarviaDevice:
         self.thermostat = None
         self.binarySensors = None
         self.humiditySensor = None
+        self.wifiRssiSensor = None
+        self.remainingTimeSensor = None
+        self.stovePowerSensor = None
         self.humidityNumber = None
         self.sensors = None
         self.numbers = None
@@ -92,12 +98,18 @@ class HarviaDevice:
             self.heatUpTime = data['heatUpTime']
         if 'remainingTime' in data:
             self.remainingTime = data['remainingTime']
+        if 'wifiRSSI' in data:
+            self.wifiRSSI = data['wifiRSSI']
+        if 'stovePower' in data:
+            self.stovePower = data['stovePower']
         if 'temperature' in data:
             self.currentTemp = data['temperature']
         if 'humidity' in data:
             self.humidity = data['humidity']
         if 'timestamp' in data:
             self.lastestUpdate = data['timestamp']
+        if 'doorSafetyState' in data:
+            self.doorSafetyState = data['doorSafetyState']
         if 'statusCodes' in data:
             if data['statusCodes'] != self.statusCodes:
                 _LOGGER.debug("StatusCodes changed: " +  str(data['statusCodes']))
@@ -125,20 +137,33 @@ class HarviaDevice:
             await self.fanSwitch.update_state()
 
 
-        safetyStatus =  int(str(self.statusCodes)[1])
-
         if self.doorSensor is not None:
-            if safetyStatus == 9:
+            # Prefer realtime boolean from data payload; fall back to False (closed) if unknown.
+            door_state = self.doorSafetyState
+            if door_state is None:
+                door_state = False
+            if bool(door_state):
                 _LOGGER.debug("Door is open")
-                self.doorSensor._state = STATE_ON
             else:
                 _LOGGER.debug("Door is closed")
-                self.doorSensor._state = STATE_OFF
+            self.doorSensor._state = bool(door_state)
             await self.doorSensor.update_state()
 
         if self.humiditySensor is not None:
             self.humiditySensor._state = self.humidity
             await self.humiditySensor.update_state()
+
+        if self.wifiRssiSensor is not None:
+            self.wifiRssiSensor._state = self.wifiRSSI
+            await self.wifiRssiSensor.update_state()
+
+        if self.remainingTimeSensor is not None:
+            self.remainingTimeSensor._state = self.remainingTime
+            await self.remainingTimeSensor.update_state()
+
+        if self.stovePowerSensor is not None:
+            self.stovePowerSensor._state = self.stovePower
+            await self.stovePowerSensor.update_state()
 
         if self.humidityNumber is not None:
             self.humidityNumber._state = self.targetRh
@@ -211,7 +236,14 @@ class HarviaDevice:
         self.sensors = []
 
         humiditySensor = HarviaHumiditySensor(device=self, name=self.name, sauna=self.sauna)
+        wifiRssiSensor = HarviaWifiRssiSensor(device=self, name=self.name)
+        remainingTimeSensor = HarviaRemainingTimeSensor(device=self, name=self.name)
+        stovePowerSensor = HarviaStovePowerSensor(device=self, name=self.name)
+
         self.sensors.append(humiditySensor)
+        self.sensors.append(wifiRssiSensor)
+        self.sensors.append(remainingTimeSensor)
+        self.sensors.append(stovePowerSensor)
 
         return self.sensors
 

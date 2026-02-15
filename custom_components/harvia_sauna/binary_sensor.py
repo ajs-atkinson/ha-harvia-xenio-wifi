@@ -2,7 +2,6 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorDeviceClass,
 )
-from homeassistant.const import STATE_ON, STATE_OFF
 from .constants import DOMAIN, STORAGE_KEY, STORAGE_VERSION, REGION,_LOGGER
 from homeassistant.helpers.device_registry import DeviceInfo
 
@@ -12,7 +11,7 @@ class HarviaDoorSensor(BinarySensorEntity):
     def __init__(self, device, name, sauna):
         """Initialize the door sensor."""
         self._name = name + ' Door'
-        self._state = STATE_OFF
+        self._state = False
         self._device = device
         self._device_id = device.id + '_door_sensor'
         self._sauna = sauna
@@ -38,7 +37,13 @@ class HarviaDoorSensor(BinarySensorEntity):
     @property
     def is_on(self):
         """Return True if the sensor detects that the door is open."""
-        return self._state != STATE_OFF
+        # Harvia realtime payload provides `doorSafetyState` (bool). In observed payloads:
+        #   doorSafetyState == False -> door closed
+        #   doorSafetyState == True  -> door open / safety triggered
+        door_state = getattr(self._device, "doorSafetyState", None)
+        if door_state is None:
+            return bool(self._state)
+        return bool(door_state)
 
     async def async_added_to_hass(self):
         """Actions to perform when the entity is added to Home Assistant."""
