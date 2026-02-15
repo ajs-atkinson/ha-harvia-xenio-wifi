@@ -2,7 +2,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorDeviceClass,
 )
-from .constants import DOMAIN, STORAGE_KEY, STORAGE_VERSION, REGION,_LOGGER
+from .constants import DOMAIN
 from homeassistant.helpers.device_registry import DeviceInfo
 
 class HarviaDoorSensor(BinarySensorEntity):
@@ -89,7 +89,17 @@ class HarviaSafetySwitchSensor(BinarySensorEntity):
     @property
     def is_on(self):
         """Return True if the safety switch is triggered."""
-        return bool(self._state)
+        # Use realtime fields from the device payload.
+        door_safety_state = getattr(self._device, "doorSafetyState", None)
+        safety_relay = getattr(self._device, "safetyRelay", None)
+
+        # If either indicates a triggered safety condition, report ON.
+        if door_safety_state is not None and door_safety_state:
+            return True
+        if safety_relay is not None and safety_relay:
+            return True
+
+        return False
 
     async def async_added_to_hass(self):
         """Actions to perform when the entity is added to Home Assistant."""
@@ -105,16 +115,15 @@ class HarviaSafetySwitchSensor(BinarySensorEntity):
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up the Harvia binary sensors."""
-    devices = await hass.data[DOMAIN]['api'].get_devices()
-    all_binary_sensors = []  # Use a different variable name to avoid confusion
+    # Retrieve the integration instance stored per config entry
+    harvia = hass.data[DOMAIN][entry.entry_id]
+    devices = await harvia.get_devices()
+
+    all_binary_sensors = []
 
     for device in devices:
-        _LOGGER.debug(f"Loading binary sensors for device: {device.name}")
-        device_binary_sensors = await device.get_binary_sensors()  # Get binary sensors for the current device
-
-        # Add Safety Switch sensor (Harvia app label) alongside the existing door sensor.
-        device_binary_sensors.append(HarviaSafetySwitchSensor(device=device, name=device.name, sauna=device.sauna))
-
-        all_binary_sensors.extend(device_binary_sensors)  # Add the binary sensors to the list
+        # Let the device create and return all of its binary sensors
+        device_binary_sensors = await device.get_binary_sensors()
+        all_binary_sensors.extend(device_binary_sensors)
 
     async_add_entities(all_binary_sensors, True)

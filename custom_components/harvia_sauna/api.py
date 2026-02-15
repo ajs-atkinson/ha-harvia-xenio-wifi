@@ -6,6 +6,7 @@ import re
 import base64
 import botocore.exceptions
 from urllib.parse import quote
+from typing import Any, Dict, Optional
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .constants import DOMAIN, REGION
@@ -121,14 +122,14 @@ class HarviaSaunaAPI:
         await self.checkAndRenewTokens()
         return self.token_data['id_token']
 
-    async def getHeaders(self) -> dict:
+    async def getHeaders(self) -> Dict[str, str]:
         idToken = await self.getIdToken()
         headers = {
             'authorization': idToken
         }
         return headers
 
-    async def endpoint(self, endpoint: str, query: dict) -> dict:
+    async def endpoint(self, endpoint: str, query: Dict[str, Any]) -> Dict[str, Any]:
         """Call a Harvia GraphQL endpoint and return the parsed JSON response."""
         if self.endpoints is None:
             await self.getEndpoints()
@@ -140,7 +141,7 @@ class HarviaSaunaAPI:
         _LOGGER.debug("Endpoint request on '%s':", url)
         _LOGGER.debug("\tQuery: %s", queryDump)
 
-        async def _do_request() -> dict:
+        async def _do_request() -> Dict[str, Any]:
             headers = await self.getHeaders()
             async with session.post(url, json=query, headers=headers) as response:
                 # Read body once so we can log useful info on errors.
@@ -190,3 +191,69 @@ class HarviaSaunaAPI:
         encoded_header = base64.b64encode(json.dumps(headerPayload).encode())
         wssUrl = websockEndpoint['wssUrl']+ '?header='+ quote(encoded_header)+'&payload=e30='
         return wssUrl
+
+    async def get_appsync_ws_start_message(
+        self,
+        query: str,
+        variables: Optional[Dict[str, Any]],
+        host: str,
+        operation_id: str,
+        *,
+        operation_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Build an AWS AppSync websocket `start` message.
+
+        We keep this logic centralized so we can reuse it for Device/Data/Events
+        subscriptions and so logging/redaction can be applied consistently.
+
+        Args:
+            query: GraphQL subscription string.
+            variables: Variables dict (or None).
+            host: The AppSync API host (e.g. `xxxxx.appsync-api.eu-west-1.amazonaws.com`).
+            operation_id: Websocket operation id to correlate ACK/data.
+            operation_name: Optional GraphQL operation name.
+
+        Returns:
+            Dict representing the websocket frame to send.
+        """
+        id_token = await self.getIdToken()
+
+        # NOTE: AWS Amplify adds an x-amz-user-agent in the extensions. It is
+        # not required for AppSync, but some backends/logs may expect it.
+        # We keep it for maximum compatibility.
+        extensions = {
+            "authorization": {
+                "Authorization": id_token,
+                "host": host,
+                "x-amz-user-agent": "aws-amplify/2.0.5 react-native",
+            }
+        }
+
+        payload_obj: Dict[str, Any] = {
+            "query": query,
+            "variables": variables or {},
+        }
+        if operation_name:
+            payload_obj["operationName"] = operation_name
+
+        return {
+            "id": operation_id,
+            "type": "start",
+            "payload": {
+                # AppSync expects `data` to be a JSON *string* containing the gql payload.
+                "data": json.dumps(payload_obj),
+                "extensions": extensions,
+            },
+        }
+
+    async def get_ws_connection_params(self, endpoint: str) -> Dict[str, str]:
+        """Return websocket URL + host for an endpoint key in `self.endpoints`.
+
+        Example endpoint keys: 'device', 'data', 'events'.
+        """
+        if self.endpoints is None:
+            await self.getEndpoints()
+
+        websock = await self.getWebsocketEndpoint(endpoint)
+        wss_url = await self.getWebsockUrlByEndpoint(endpoint)
+        return {"wssUrl": wss_url, "host": websock["host"]}

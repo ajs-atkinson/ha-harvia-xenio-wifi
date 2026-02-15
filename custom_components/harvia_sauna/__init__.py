@@ -14,8 +14,8 @@ from .climate import HarviaThermostat
 from .sensor import HarviaHumiditySensor, HarviaWifiRssiSensor, HarviaRemainingTimeSensor, HarviaStovePowerSensor
 from .number import HarviaHumiditySetPoint
 from .api import HarviaSaunaAPI
-from .binary_sensor import HarviaDoorSensor
-from .constants import DOMAIN, STORAGE_KEY, STORAGE_VERSION, REGION,_LOGGER
+from .binary_sensor import HarviaDoorSensor, HarviaSafetySwitchSensor
+from .constants import DOMAIN, STORAGE_KEY, STORAGE_VERSION, REGION
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.storage import Store
@@ -256,13 +256,18 @@ class HarviaDevice:
 
     async def get_binary_sensors(self) -> list:
 
-        if self.binarySensors != None:
+        if self.binarySensors is not None:
             return self.binarySensors
 
         self.binarySensors = []
 
-        binarySensor = HarviaDoorSensor(device=self, name=self.name, sauna=self.sauna)
-        self.binarySensors.append(binarySensor)
+        # Door contact sensor
+        self.doorSensor = HarviaDoorSensor(device=self, name=self.name, sauna=self.sauna)
+        self.binarySensors.append(self.doorSensor)
+
+        # Harvia app labels this as "Safety switch" (separate from "Door" in the UI)
+        self.safetySwitchSensor = HarviaSafetySwitchSensor(device=self, name=self.name, sauna=self.sauna)
+        self.binarySensors.append(self.safetySwitchSensor)
 
         return self.binarySensors
 
@@ -739,17 +744,25 @@ async def async_setup_entry(hass, entry):
     storage = Store(hass, STORAGE_VERSION, STORAGE_KEY)
     harvia_sauna = HarviaSauna(hass, storage, entry)
     await harvia_sauna.async_setup(entry)
+
+    # Store the integration instance for platform/entity access
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN][entry.entry_id] = harvia_sauna
+
     await hass.config_entries.async_forward_entry_setups(entry, ENTITY_TYPES)
 
     return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Handle unloading a config entry."""
-    # Unload platforms that are part of the integration
+    unload_ok = True
     for entity_type in ENTITY_TYPES:
-        await hass.config_entries.async_forward_entry_unload(entry, entity_type)
+        unload_ok = unload_ok and await hass.config_entries.async_forward_entry_unload(entry, entity_type)
 
-    return True
+    # Clean up stored instance
+    if DOMAIN in hass.data and entry.entry_id in hass.data[DOMAIN]:
+        hass.data[DOMAIN].pop(entry.entry_id)
+
+    return unload_ok
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Handle reloading a config entry."""
