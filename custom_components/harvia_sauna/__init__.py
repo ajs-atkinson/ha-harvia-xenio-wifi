@@ -95,6 +95,16 @@ class HarviaDevice:
 
         _LOGGER.debug(f"Performing device update: " + json.dumps(data))
 
+        # Set all attributes from data and update corresponding GenericAttributeSensor if it exists
+        for key, value in data.items():
+            setattr(self, key, value)
+            # Update GenericAttributeSensor if it exists for this attribute
+            if hasattr(self, 'generic_sensors') and key in self.generic_sensors:
+                self.generic_sensors[key]._state = value
+                if getattr(self.generic_sensors[key], 'hass', None) is not None:
+                    await self.generic_sensors[key].update_state()
+
+        # Maintain legacy/explicit attributes for compatibility
         if 'displayName' in data:
             self.name = data['displayName']
         if 'active' in data:

@@ -243,10 +243,14 @@ async def async_setup_entry(hass, entry, async_add_entities):
         _LOGGER.debug(f"Loading sensors for device: {device.name}")
         device_sensors = await device.get_sensors()
         all_sensors.extend(device_sensors)
-        # Add generic attribute sensors for all attributes not already covered
+        # Add generic attribute sensors for all attributes not already covered, except those with dedicated sensors
         from .device_attributes import attribute_list
         covered = {s._attr_name for s in device_sensors if hasattr(s, '_attr_name')}
+        # Exclude attributes with dedicated sensors
+        excluded_attrs = {"wifiRSSI", "statusCodes"}
         for attr in attribute_list:
+            if attr in excluded_attrs:
+                continue
             if attr not in covered and GenericAttributeSensor.is_enabled(device, attr):
                 sensor = GenericAttributeSensor(device, getattr(device, 'name', 'Sauna'), attr)
                 all_sensors.append(sensor)
