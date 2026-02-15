@@ -1,6 +1,8 @@
-from homeassistant.components.sensor import SensorEntity
-from homeassistant.const import PERCENTAGE, UnitOfTime, SIGNAL_STRENGTH_DECIBELS_MILLIWATT
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.const import PERCENTAGE, SIGNAL_STRENGTH_DECIBELS_MILLIWATT, UnitOfTime
+from .constants import DOMAIN, _LOGGER
+from homeassistant.components.sensor import SensorEntity
+
 
 class GenericAttributeSensor(SensorEntity):
     """Sensor to expose a generic device attribute for diagnostics."""
@@ -79,10 +81,7 @@ class StatusCodesSensor(SensorEntity):
         if not self.enabled:
             return
         self.async_write_ha_state()
-from homeassistant.components.sensor import SensorEntity
-from homeassistant.const import PERCENTAGE, UnitOfTime, SIGNAL_STRENGTH_DECIBELS_MILLIWATT
-from homeassistant.helpers.device_registry import DeviceInfo
-from .constants import DOMAIN, STORAGE_KEY, STORAGE_VERSION, REGION,_LOGGER
+
 
 class HarviaHumiditySensor(SensorEntity):
     """Representation of a humidity sensor."""

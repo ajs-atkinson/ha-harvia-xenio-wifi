@@ -1,3 +1,4 @@
+
 class SaunaReadySensor(BinarySensorEntity):
     """Sensor indicating whether the sauna is on and has reached the target temperature."""
 

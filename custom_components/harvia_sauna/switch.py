@@ -1,5 +1,5 @@
 from homeassistant.components.switch import SwitchEntity
-from .constants import DOMAIN, STORAGE_KEY, STORAGE_VERSION, REGION,_LOGGER
+from .constants import DOMAIN, _LOGGER
 from homeassistant.components.climate.const import HVACMode
 from homeassistant.helpers.device_registry import DeviceInfo
 

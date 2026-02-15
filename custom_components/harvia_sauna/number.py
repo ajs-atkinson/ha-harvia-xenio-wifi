@@ -1,7 +1,7 @@
 from homeassistant.components.number import NumberEntity
 from homeassistant.const import PERCENTAGE
 from homeassistant.helpers.device_registry import DeviceInfo
-from .constants import DOMAIN, STORAGE_KEY, STORAGE_VERSION, REGION,_LOGGER
+from .constants import DOMAIN, _LOGGER
 
 class HarviaHumiditySetPoint(NumberEntity):
     """Representation of a number entity to set the target humidity."""
