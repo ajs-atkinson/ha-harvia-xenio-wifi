@@ -742,7 +742,9 @@ class HarviaSauna:
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Harvia Sauna integration."""
-    boto3.set_stream_logger('custom_component.harvia_sauna')
+    # Removed boto3.set_stream_logger(...): it force-attached a DEBUG stream handler to a
+    # hard-coded logger name, bypassing HA's logger config and flooding the log (which hung HA).
+    # All module loggers use __name__, so logging now respects HA's configuration.
     return True
 
 async def async_setup_entry(hass, entry):
