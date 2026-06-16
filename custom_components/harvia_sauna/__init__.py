@@ -572,6 +572,7 @@ class HarviaSauna:
         self.websockDataUser = None
         self.api = None
         self.rated_power_w = 0
+        self.refresh_interval = 300  # safety-net poll period (s)
 
     async def async_setup(self, config: dict) -> bool:
         """Set up the Harvia Sauna integration from the config entry."""
@@ -599,6 +600,7 @@ class HarviaSauna:
 
         await self.update_devices()
         self.hass.loop.create_task(self.check_connections())
+        self.hass.loop.create_task(self.periodic_refresh())
         self.hass.data[DOMAIN]['api'] = self
 
         return True
@@ -719,6 +721,34 @@ class HarviaSauna:
         data = await self.api.endpoint('users',query )
         self.user_data = data['data']['getCurrentUserDetails']
         return  self.user_data
+
+    async def refresh_device_states(self):
+        """Safety-net poll: re-fetch each device's state directly via the REST query,
+        in case the Harvia websocket push stream silently stops delivering updates
+        (its keepalives keep the socket 'alive' so the reconnect watchdog won't trip)."""
+        if not self.devices:
+            return
+        for device in self.devices:
+            try:
+                shadow = await self.get_device(device.id)
+                await device.update_data(shadow)
+            except Exception as e:
+                _LOGGER.debug("Periodic refresh (state) failed for %s: %s", device.id, e)
+            try:
+                latest = await self.get_latest_device_data(device.id)
+                await device.update_data(latest)
+            except Exception as e:
+                _LOGGER.debug("Periodic refresh (data) failed for %s: %s", device.id, e)
+
+    async def periodic_refresh(self):
+        """Re-fetch device state every refresh_interval seconds so HA state is never
+        more than a few minutes stale even if the websocket push stream dies."""
+        while True:
+            await asyncio.sleep(self.refresh_interval)
+            try:
+                await self.refresh_device_states()
+            except Exception as e:
+                _LOGGER.debug("periodic_refresh loop error: %s", e)
 
     async def check_connections(self):
         while True:
