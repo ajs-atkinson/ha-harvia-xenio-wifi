@@ -322,14 +322,28 @@ class HarviaSaunaEnergySensor(RestoreSensor):
         self._device.energySensor = self
         await self._device.update_ha_devices()
 
-    def accumulate(self, power_w):
-        """Integrate instantaneous stove power (W) into kWh between updates."""
+    def _effective_power(self):
+        """Use real stove power if reported (>0); else fall back to rated kW while heating."""
+        sp = getattr(self._device, "stovePower", None)
+        try:
+            sp = float(sp)
+        except (TypeError, ValueError):
+            sp = 0.0
+        if sp and sp > 0:
+            return sp
+        if getattr(self._device, "heatOn", False):
+            rated = getattr(getattr(self._device, "sauna", None), "rated_power_w", 0) or 0
+            try:
+                return float(rated)
+            except (TypeError, ValueError):
+                return 0.0
+        return 0.0
+
+    def accumulate(self):
+        """Integrate effective stove power (W) into kWh between updates."""
         import time as _t
         now = _t.monotonic()
-        try:
-            p = float(power_w)
-        except (TypeError, ValueError):
-            p = None
+        p = self._effective_power()
         if self._last_time is not None and self._last_power is not None:
             dt_h = (now - self._last_time) / 3600.0
             if 0 < dt_h < 24 and self._last_power >= 0:
