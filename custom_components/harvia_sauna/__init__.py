@@ -240,7 +240,7 @@ class HarviaDevice:
 
         if getattr(self, 'energySensor', None) is not None:
             try:
-                self.energySensor.accumulate(self.stovePower)
+                self.energySensor.accumulate()
             except Exception:
                 pass
             if getattr(self.energySensor, 'hass', None) is not None:
@@ -571,12 +571,18 @@ class HarviaSauna:
         self.websockDeviceUser = None
         self.websockDataUser = None
         self.api = None
+        self.rated_power_w = 0
 
     async def async_setup(self, config: dict) -> bool:
         """Set up the Harvia Sauna integration from the config entry."""
         _LOGGER.info("Starting setup of Harvia Sauna component.")
 
         self.data = await self.storage.async_load() or {}
+
+        try:
+            self.rated_power_w = float((self.config.options or {}).get("stove_rated_power_kw", 0) or 0) * 1000.0
+        except (TypeError, ValueError):
+            self.rated_power_w = 0
 
         if DOMAIN not in self.hass.data:
             self.hass.data[DOMAIN] = {}
@@ -782,6 +788,7 @@ async def async_setup_entry(hass, entry):
     storage = Store(hass, STORAGE_VERSION, STORAGE_KEY)
     harvia_sauna = HarviaSauna(hass, storage, entry)
     await harvia_sauna.async_setup(entry)
+    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
     # Store the integration instance for platform/entity access
     hass.data.setdefault(DOMAIN, {})
