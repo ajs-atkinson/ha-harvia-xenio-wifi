@@ -103,6 +103,42 @@ class HarviaDoorSensor(BinarySensorEntity):
         self.async_write_ha_state()
 
 
+
+
+class HarviaHeatingSensor(BinarySensorEntity):
+    """True while the stove heating element is actively on (duty-cycles during a session)."""
+
+    def __init__(self, device, name):
+        self._name = name + ' Heating'
+        self._device = device
+        self._attr_unique_id = device.id + '_heating'
+        self._attr_icon = 'mdi:radiator'
+        self._attr_device_class = BinarySensorDeviceClass.RUNNING
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, device.id)},
+            name=getattr(device, "name", None) or name,
+            manufacturer="Harvia",
+            model=getattr(device, "model", None) or "Xenio WiFi",
+        )
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def is_on(self):
+        return bool(getattr(self._device, "heatOn", False))
+
+    async def async_added_to_hass(self):
+        self._device.heatingSensor = self
+        await self._device.update_ha_devices()
+
+    async def update_state(self):
+        if not self.enabled:
+            return
+        self.async_write_ha_state()
+
+
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up the Harvia binary sensors."""
     # Retrieve the integration instance stored per config entry
