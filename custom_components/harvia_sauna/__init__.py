@@ -11,10 +11,10 @@ import random
 
 from .switch import HarviaPowerSwitch, HarviaLightSwitch, HarviaFanSwitch, HarviaSteamerSwitch
 from .climate import HarviaThermostat
-from .sensor import HarviaHumiditySensor, HarviaWifiRssiSensor, HarviaRemainingTimeSensor, HarviaStovePowerSensor
+from .sensor import HarviaHumiditySensor, HarviaWifiRssiSensor, HarviaRemainingTimeSensor, HarviaStovePowerSensor, HarviaSaunaEnergySensor
 from .number import HarviaHumiditySetPoint
 from .api import HarviaSaunaAPI
-from .binary_sensor import HarviaDoorSensor
+from .binary_sensor import HarviaDoorSensor, HarviaHeatingSensor
 from .constants import DOMAIN, STORAGE_KEY, STORAGE_VERSION, REGION
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
@@ -75,6 +75,9 @@ class HarviaDevice:
         self.wifiRssiSensor = None
         self.remainingTimeSensor = None
         self.stovePowerSensor = None
+        self.heatOn = False
+        self.heatingSensor = None
+        self.energySensor = None
         self.humidityNumber = None
         self.sensors = None
         self.numbers = None
@@ -119,6 +122,7 @@ class HarviaDevice:
             self.steamOn = bool(data['steamEn'])
         if 'heatOn' in data:
             self.active = data['heatOn']
+            self.heatOn = bool(data['heatOn'])
         if 'targetTemp' in data:
             self.targetTemp = data['targetTemp']
         if 'targetRh' in data:
@@ -230,6 +234,18 @@ class HarviaDevice:
             if getattr(self.humidityNumber, 'hass', None) is not None:
                 await self.humidityNumber.update_state()
 
+        if getattr(self, 'heatingSensor', None) is not None:
+            if getattr(self.heatingSensor, 'hass', None) is not None:
+                await self.heatingSensor.update_state()
+
+        if getattr(self, 'energySensor', None) is not None:
+            try:
+                self.energySensor.accumulate(self.stovePower)
+            except Exception:
+                pass
+            if getattr(self.energySensor, 'hass', None) is not None:
+                await self.energySensor.update_state()
+
         if self.thermostat is not None:
             self.thermostat._target_temperature = self.targetTemp
             self.thermostat._current_temperature = self.currentTemp
@@ -281,12 +297,14 @@ class HarviaDevice:
             return self.binarySensors
         self.binarySensors = []
         # Door contact sensor
-        from .binary_sensor import HarviaDoorSensor, SaunaReadySensor
+        from .binary_sensor import HarviaDoorSensor, HarviaHeatingSensor, SaunaReadySensor
         self.doorSensor = HarviaDoorSensor(device=self, name=self.name, sauna=self.sauna)
         self.binarySensors.append(self.doorSensor)
         # Sauna ready sensor
         self.readySensor = SaunaReadySensor(device=self, name=self.name, sauna=self.sauna)
         self.binarySensors.append(self.readySensor)
+        self.heatingSensor = HarviaHeatingSensor(device=self, name=self.name)
+        self.binarySensors.append(self.heatingSensor)
         return self.binarySensors
 
 
@@ -305,6 +323,8 @@ class HarviaDevice:
         self.sensors.append(remainingTimeSensor)
         self.sensors.append(stovePowerSensor)
         self.sensors.append(statusCodesSensor)
+        energySensor = HarviaSaunaEnergySensor(device=self, name=self.name)
+        self.sensors.append(energySensor)
         return self.sensors
 
     async def get_numbers(self) -> list:
